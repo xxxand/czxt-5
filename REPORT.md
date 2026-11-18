@@ -19,7 +19,7 @@
 | 后备存储 | `BACKING_STORE.bin`，65,536 字节 |
 | 测试输入 | `addresses.txt`，1000 个逻辑地址 |
 
-实验环境：Ubuntu 26.04.1 LTS（WSL2，Linux 6.18.54.1-microsoft-standard-WSL2，x86_64），gcc 15.2.0，GNU Make 4.4.1。编译选项 `-std=c11 -Wall -Wextra -O2`，无警告。编译与运行方法见 [README.md](README.md)。
+实验环境：Ubuntu 26.04.1 LTS（WSL2，Linux 6.18.54.1-microsoft-standard-WSL2，x86_64），gcc 15.2.0，GNU Make 4.4.1，Python 3.14.4（仅用于生成局部性序列）。编译选项 `-std=c11 -Wall -Wextra -O2`，无警告。编译与运行方法见 [README.md](README.md)。
 
 ## 2. 程序设计
 
@@ -111,54 +111,41 @@ allocate_frame():
 
 ## 3. 实验结果与分析
 
-下面的快照均为终端输出的文本。
+下面的截图均在项目目录 `czxt-5` 下的 WSL 终端中运行得到，图片存放在 [screenshots](screenshots/) 目录；每张截图上方的代码块给出了对应的命令。
 
 ### 3.1 编译与页号、偏移提取
 
-```text
-$ make
-gcc -std=c11 -Wall -Wextra -O2 -o extract extract.c
-gcc -std=c11 -Wall -Wextra -O2 -o version1 version1.c
-gcc -std=c11 -Wall -Wextra -O2 -o version2 version2.c
+运行下面的命令编译全部程序，并对指导书给出的 7 个整数提取页号和页内偏移（图 1）：
 
-$ ./extract
-1: page number = 0, offset = 1
-256: page number = 1, offset = 0
-32768: page number = 128, offset = 0
-32769: page number = 128, offset = 1
-128: page number = 0, offset = 128
-65534: page number = 255, offset = 254
-33153: page number = 129, offset = 129
+```bash
+make clean && make
+./extract
 ```
+
+![图 1 编译与页号、偏移提取](screenshots/1.png)
+
+*图 1　编译与页号、偏移提取*
 
 与手工计算一致，例如 33153 = 0x8181，页号 0x81 = 129，偏移 0x81 = 129。
 
 ### 3.2 version1：256 帧
 
-```text
-$ ./version1 addresses.txt | head -n 3
-Virtual address: 16916 Physical address: 20 Value: 0
-Virtual address: 62493 Physical address: 285 Value: 0
-Virtual address: 30198 Physical address: 758 Value: 29
+运行 version1，查看前 3 行输出和统计信息，再用 `make test` 与 `correct.txt` 比对（图 2）：
 
-$ ./version1 addresses.txt | tail -n 5
-Number of Translated Addresses = 1000
-Page Faults = 244
-Page-Fault Rate = 24.40%
-TLB Hits = 55
-TLB Hit Rate = 5.50%
-
-$ make test
-./version1 addresses.txt | head -n 1000 | diff - correct.txt
-version1: output matches correct.txt
-diff <(./version2 addresses.txt | head -n 1000 | cut -d' ' -f3,8) <(cut -d' ' -f3,8 correct.txt)
-version2: virtual addresses and values match correct.txt
+```bash
+./version1 addresses.txt | head -n 3
+./version1 addresses.txt | tail -n 5
+make test
 ```
+
+![图 2 version1 的输出、统计信息与 make test 校验](screenshots/2.png)
+
+*图 2　version1 的输出、统计信息与 `make test` 校验*
 
 分析：
 
-- 前 1000 行输出与 `correct.txt` 逐行一致，说明地址拆分、TLB、页表和按需调页都正确。
-- 缺页 244 次，恰好等于 `addresses.txt` 中不同页的数量：
+- 前 1000 行输出与 `correct.txt` 逐行一致，说明地址拆分、TLB、页表和按需调页都正确。图 2 中 `make test` 对 version1 没有 diff 输出，只打印了 `version1: output matches correct.txt`。
+- 缺页 244 次（图 2），恰好等于 `addresses.txt` 中不同页的数量：
 
   ```text
   $ awk '{print int(($1 % 65536)/256)}' addresses.txt | sort -un | wc -l
@@ -166,28 +153,33 @@ version2: virtual addresses and values match correct.txt
   ```
 
   version1 没有页面置换，每个页只在第一次被访问时缺页一次。
-- TLB 命中率只有 5.50%。`addresses.txt` 是均匀随机的，没有局部性。在这样的序列上，TLB 稳态下保存最近访问的 16 个不同页，下一次访问命中的概率约为 16/256 = 6.25%。启动阶段 TLB 尚未装满，实测 5.50% 略低于这个值。
+- TLB 命中 55 次，命中率只有 5.50%（图 2）。`addresses.txt` 是均匀随机的，没有局部性。在这样的序列上，TLB 稳态下保存最近访问的 16 个不同页，下一次访问命中的概率约为 16/256 = 6.25%。启动阶段 TLB 尚未装满，实测 5.50% 略低于这个值。
 - TLB 在这个序列上几乎没有作用。假设一次内存访问 100 ns，忽略 TLB 自身的查找时间，只看地址转换的访存开销：命中 TLB 时访存 1 次，未命中时先访问页表再访问内存，共 2 次。有效访问时间 EAT = α × 100 + (1 − α) × 200 ns（α 为 TLB 命中率），α = 5.50% 时 EAT = 194.5 ns，几乎等于没有 TLB 时的 200 ns。这里的 100 ns 是示例假设，不是实测值，也没有计入缺页的磁盘开销。
 
 ### 3.3 version2：128 帧
 
-```text
-$ ./version2 addresses.txt | tail -n 5
-Number of Translated Addresses = 1000
-Page Faults = 539
-Page-Fault Rate = 53.90%
-TLB Hits = 55
-TLB Hit Rate = 5.50%
+运行 version2 并查看统计信息（图 3）：
+
+```bash
+./version2 addresses.txt | tail -n 5
 ```
 
-version2 的物理地址与 `correct.txt` 不同（只有 128 帧，发生了页面置换），但每行的逻辑地址和字节值都与 `correct.txt` 一致（`make test` 的第二项检查）。
+![图 3 version2 的统计信息](screenshots/3.png)
 
-**首次置换。** 第 172 次访问（逻辑地址 48855，页 190）是第 129 次缺页，也是第一次需要置换：128 个帧已全部占用，最久未使用的是页 66（帧 0）。version1 把页 190 放入新的帧 128，version2 换出页 66、复用帧 0，所以同一行的物理地址不同，字节值相同：
+*图 3　version2 的统计信息*
 
-```text
-version1: Virtual address: 48855 Physical address: 32983 Value: -75
-version2: Virtual address: 48855 Physical address: 215 Value: -75
+图 3 中 version2 缺页 539 次（53.90%），TLB 命中 55 次（5.50%）。version2 的物理地址与 `correct.txt` 不同（只有 128 帧，发生了页面置换），但每行的逻辑地址和字节值都与 `correct.txt` 一致（图 2 中 `make test` 的第二项检查）。
+
+**首次置换。** 第 172 次访问（逻辑地址 48855，页 190）是第 129 次缺页，也是第一次需要置换：128 个帧已全部占用，最久未使用的是页 66（帧 0）。version1 把页 190 放入新的帧 128，version2 换出页 66、复用帧 0，所以同一行的物理地址不同（分别为 32983 和 215），字节值相同（均为 -75）。用 `sed -n 172p` 取出两个版本输出的第 172 行，结果见图 4：
+
+```bash
+./version1 addresses.txt | sed -n 172p
+./version2 addresses.txt | sed -n 172p
 ```
+
+![图 4 第 172 个地址在两个版本中的输出](screenshots/4.png)
+
+*图 4　第 172 个地址在两个版本中的输出*
 
 **缺页构成。** 缺页可以分为两类：页第一次被访问时的缺页（序列中有多少个不同页就有多少次），以及页被换出后再次被访问时的缺页。
 
@@ -209,7 +201,7 @@ version2 的 539 次缺页中，前 128 次装入空闲帧，之后 411 次都�
 
 ### 3.4 带局部性的地址序列
 
-指导书提示可以生成带局部性的序列以获得更高的命中率。下面的脚本保存为 `gen_locality.py`：1000 个地址分为 50 个阶段，每个阶段 20 次访问；每个阶段随机选 6 个页作为热点页，阶段内每次访问从这 6 个页中随机取一页，页内偏移随机。用固定种子的线性同余发生器，保证序列可以复现。
+指导书提示可以生成带局部性的序列以获得更高的命中率。仓库中的 [gen_locality.py](gen_locality.py) 生成 1000 个这样的地址：分为 50 个阶段，每个阶段 20 次访问；每个阶段随机选 6 个页作为热点页，阶段内每次访问从这 6 个页中随机取一页，页内偏移随机。用固定种子的线性同余发生器，保证序列可以复现。脚本内容如下：
 
 ```python
 # 带局部性的地址序列: 50 个阶段, 每阶段 20 次访问, 每阶段从 6 个热点页中取页
@@ -230,22 +222,17 @@ for _ in range(50):
 print("\n".join(map(str, addrs)))
 ```
 
-```text
-$ python3 gen_locality.py > locality.txt
-$ ./version1 locality.txt | tail -n 5
-Number of Translated Addresses = 1000
-Page Faults = 176
-Page-Fault Rate = 17.60%
-TLB Hits = 730
-TLB Hit Rate = 73.00%
+用该脚本生成序列文件 `locality.txt`，再分别运行两个版本并查看统计信息（图 5）：
 
-$ ./version2 locality.txt | tail -n 5
-Number of Translated Addresses = 1000
-Page Faults = 187
-Page-Fault Rate = 18.70%
-TLB Hits = 730
-TLB Hit Rate = 73.00%
+```bash
+python3 gen_locality.py > locality.txt
+./version1 locality.txt | tail -n 5
+./version2 locality.txt | tail -n 5
 ```
+
+![图 5 局部性序列上两个版本的统计信息](screenshots/5.png)
+
+*图 5　局部性序列上两个版本的统计信息*
 
 分析：
 
@@ -267,7 +254,7 @@ TLB Hit Rate = 73.00%
 
 ### 3.6 正确性验证
 
-1. `make test`：version1 的输出与 `correct.txt` 完全一致；version2 的逻辑地址和字节值与 `correct.txt` 一致。
+1. `make test`：version1 的输出与 `correct.txt` 完全一致；version2 的逻辑地址和字节值与 `correct.txt` 一致（图 2）。
 2. 独立参考实现：另用 Python 写了一个 LRU 页面置换与 LRU TLB 的模拟（以 `OrderedDict` 维护最近使用顺序，与 C 代码各自独立编写）。对 `addresses.txt` 和局部性序列，version1、version2 的每一行输出（逻辑地址、物理地址、字节值）以及缺页次数、TLB 命中次数都与参考实现一致，所有字节值也都等于 `BACKING_STORE.bin` 中对应位置的字节。
 3. 用 `-fsanitize=address,undefined` 构建两个版本，在 `addresses.txt` 上运行，没有报错。
 4. 边界输入：空地址文件、大于 16 位的地址（2147435028、82452 与 16916 得到相同的页号、偏移和物理地址 20）、无参数、地址文件不存在、当前目录没有 `BACKING_STORE.bin`，行为均符合预期。
