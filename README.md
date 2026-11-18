@@ -25,16 +25,19 @@
 | `version2.c` | version2 源码 |
 | `extract.c` | 页号与页内偏移提取程序 |
 | `Makefile` | 构建与校验 |
+| `gen_locality.py` | 生成带局部性的地址序列，用法见 [REPORT.md](REPORT.md) 3.4 节 |
 | `addresses.txt` | 测试输入，1000 个逻辑地址 |
 | `correct.txt` | `addresses.txt` 在 256 帧下的正确输出 |
 | `BACKING_STORE.bin` | 后备存储，65536 字节（256 页 × 256 字节） |
 | `Lab05.md`、`Lab05.zh.md` | 实验指导书（英文、中文） |
 | `REPORT.md` | 实验报告 |
+| `screenshots/` | 实验报告中的运行截图 |
 
 ## 环境要求
 
 - Linux，需要 gcc（支持 C11）、GNU make 和 bash（`make test` 用到 bash 的进程替换）。
-- 已在 Ubuntu 26.04.1 LTS（WSL2）、gcc 15.2.0、GNU Make 4.4.1 下验证，使用 `-std=c11 -Wall -Wextra -O2` 编译无警告。
+- 生成局部性序列（`gen_locality.py`）还需要 python3。
+- 已在 Ubuntu 26.04.1 LTS（WSL2）、gcc 15.2.0、GNU Make 4.4.1、Python 3.14.4 下验证，使用 `-std=c11 -Wall -Wextra -O2` 编译无警告。
 
 ## 编译
 
