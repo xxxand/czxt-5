@@ -4,15 +4,14 @@
  */
 #include <stdio.h>
 
-int main(void)
-{
+int main(void) {
     unsigned int values[] = {1, 256, 32768, 32769, 128, 65534, 33153};
 
     for (size_t i = 0; i < sizeof values / sizeof values[0]; i++) {
         unsigned int addr = values[i] & 0xFFFF;
 
-        printf("%u: page number = %u, offset = %u\n",
-               values[i], addr >> 8, addr & 0xFF);
+        printf("%u: page number = %u, offset = %u\n", values[i], addr >> 8,
+               addr & 0xFF);
     }
     return 0;
 }

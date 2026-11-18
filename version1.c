@@ -10,18 +10,18 @@
 #include <stdlib.h>
 
 #define OFFSET_BITS 8
-#define PAGE_SIZE   (1 << OFFSET_BITS)
-#define FRAME_SIZE  PAGE_SIZE
+#define PAGE_SIZE (1 << OFFSET_BITS)
+#define FRAME_SIZE PAGE_SIZE
 #define OFFSET_MASK (PAGE_SIZE - 1)
-#define ADDR_MASK   0xFFFF  /* 只关心逻辑地址的低 16 位 */
-#define NUM_PAGES   256
-#define NUM_FRAMES  256
-#define TLB_SIZE    16
+#define ADDR_MASK 0xFFFF /* 只关心逻辑地址的低 16 位 */
+#define NUM_PAGES 256
+#define NUM_FRAMES 256
+#define TLB_SIZE 16
 
 #define BACKING_STORE_FILE "BACKING_STORE.bin"
 
 struct tlb_entry {
-    int page;                /* -1 表示该项无效 */
+    int page; /* -1 表示该项无效 */
     int frame;
     unsigned long last_used; /* LRU 时间戳; 无效项为 0, 因而最先被替换 */
 };
@@ -32,8 +32,7 @@ static struct tlb_entry tlb[TLB_SIZE];
 static int next_free_frame;
 static unsigned long clock_ticks;
 
-static int tlb_lookup(int page)
-{
+static int tlb_lookup(int page) {
     for (int i = 0; i < TLB_SIZE; i++) {
         if (tlb[i].page == page) {
             tlb[i].last_used = ++clock_ticks;
@@ -43,13 +42,11 @@ static int tlb_lookup(int page)
     return -1;
 }
 
-static void tlb_insert(int page, int frame)
-{
+static void tlb_insert(int page, int frame) {
     int victim = 0;
 
     for (int i = 1; i < TLB_SIZE; i++) {
-        if (tlb[i].last_used < tlb[victim].last_used)
-            victim = i;
+        if (tlb[i].last_used < tlb[victim].last_used) victim = i;
     }
     tlb[victim].page = page;
     tlb[victim].frame = frame;
@@ -57,41 +54,39 @@ static void tlb_insert(int page, int frame)
 }
 
 /* 缺页处理: 从后备存储读入一页放进下一个空闲帧, 并更新页表 */
-static int load_page(FILE *backing_store, int page)
-{
+static int load_page(FILE* backing_store, int page) {
     int frame = next_free_frame++;
 
     if (fseek(backing_store, page * PAGE_SIZE, SEEK_SET) != 0 ||
-        fread(&memory[frame * FRAME_SIZE], 1, FRAME_SIZE, backing_store) != FRAME_SIZE) {
-        fprintf(stderr, "cannot read page %d from %s\n", page, BACKING_STORE_FILE);
+        fread(&memory[frame * FRAME_SIZE], 1, FRAME_SIZE, backing_store) !=
+            FRAME_SIZE) {
+        fprintf(stderr, "cannot read page %d from %s\n", page,
+                BACKING_STORE_FILE);
         exit(EXIT_FAILURE);
     }
     page_table[page] = frame;
     return frame;
 }
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char* argv[]) {
     if (argc != 2) {
         fprintf(stderr, "Usage: %s addresses.txt\n", argv[0]);
         return EXIT_FAILURE;
     }
 
-    FILE *addresses = fopen(argv[1], "r");
+    FILE* addresses = fopen(argv[1], "r");
     if (addresses == NULL) {
         perror(argv[1]);
         return EXIT_FAILURE;
     }
-    FILE *backing_store = fopen(BACKING_STORE_FILE, "rb");
+    FILE* backing_store = fopen(BACKING_STORE_FILE, "rb");
     if (backing_store == NULL) {
         perror(BACKING_STORE_FILE);
         return EXIT_FAILURE;
     }
 
-    for (int i = 0; i < NUM_PAGES; i++)
-        page_table[i] = -1;
-    for (int i = 0; i < TLB_SIZE; i++)
-        tlb[i].page = -1;
+    for (int i = 0; i < NUM_PAGES; i++) page_table[i] = -1;
+    for (int i = 0; i < TLB_SIZE; i++) tlb[i].page = -1;
 
     int logical;
     int total = 0, page_faults = 0, tlb_hits = 0;
@@ -113,8 +108,8 @@ int main(int argc, char *argv[])
         }
 
         int physical = frame * FRAME_SIZE + offset;
-        printf("Virtual address: %d Physical address: %d Value: %d\n",
-               logical, physical, memory[physical]);
+        printf("Virtual address: %d Physical address: %d Value: %d\n", logical,
+               physical, memory[physical]);
         total++;
     }
 
