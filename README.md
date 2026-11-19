@@ -32,6 +32,7 @@
 | `Lab05.md`、`Lab05.zh.md` | 实验指导书（英文、中文） |
 | `REPORT.md` | 实验报告 |
 | `screenshots/` | 实验报告中的运行截图 |
+| `CONTRIBUTIONS.md` | 工作分工与 AI 使用说明 |
 
 ## 环境要求
 
