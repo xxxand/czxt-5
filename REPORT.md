@@ -338,7 +338,7 @@ python3 gen_locality.py > locality.txt
 
 ## 6. 参考资料
 
-1. Abraham Silberschatz, Peter B. Galvin, Greg Gagne. *Operating System Concepts*. Wiley.（主存与虚拟内存两部分，以及书中的编程项目 "Designing a Virtual Memory Manager"；具体版本以课程所用教材为准。）
+1. Abraham Silberschatz, Peter B. Galvin, Greg Gagne. *Operating System Concepts*. Wiley.（主存与虚拟内存两部分，以及书中的编程项目 "Designing a Virtual Memory Manager"）
 2. 实验指导书 [Lab05.zh.md](Lab05.zh.md)、[Lab05.md](Lab05.md)。
 3. Linux 手册页：`fopen(3)`、`fseek(3)`、`fread(3)`、`fscanf(3)`。
 4. Wikipedia: [Translation lookaside buffer](https://en.wikipedia.org/wiki/Translation_lookaside_buffer)。
